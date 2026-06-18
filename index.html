@@ -377,7 +377,9 @@ header { background:linear-gradient(135deg,#1a237e 0%,#283593 60%,#3949ab 100%);
 // ═══════════════════════════════════════════════════════════════════
 // CONFIG
 // ═══════════════════════════════════════════════════════════════════
-var GAS_URL = localStorage.getItem("lp_gas_url") || "";
+// ── Hardcoded default — works in all browsers including incognito ──
+var DEFAULT_GAS_URL = "https://script.google.com/macros/s/AKfycby_yDVTmcQD274X4iPQkx0-R4qaPuhqsrMmPC7yx7dHCjm22uleR2AncivCbdZ0Eceu/exec";
+var GAS_URL = localStorage.getItem("lp_gas_url") || DEFAULT_GAS_URL;
 
 // ═══════════════════════════════════════════════════════════════════
 // STATE
