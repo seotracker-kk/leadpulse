@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LeadPulse Dashboard · 88gravity</title>
+<style>
+/* ── Reset & Base ─────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+       background: #f0f2f7; color: #1a1a2e; min-height: 100vh; }
+a { color: inherit; text-decoration: none; }
+button { cursor: pointer; font-family: inherit; }
+
+/* ── Config Overlay ───────────────────────────────────────────── */
+#cfg-overlay { position:fixed; inset:0; background:rgba(0,0,0,.65);
+  display:flex; align-items:center; justify-content:center; z-index:9999; }
+#cfg-overlay.hidden { display:none; }
+.cfg-box { background:#fff; border-radius:14px; padding:36px 40px; width:540px;
+  max-width:90vw; box-shadow:0 24px 64px rgba(0,0,0,.25); }
+.cfg-box h2 { font-size:1.3rem; margin-bottom:6px; color:#1a237e; }
+.cfg-box p  { font-size:.88rem; color:#666; margin-bottom:20px; line-height:1.55; }
+.cfg-box input { width:100%; border:1.5px solid #d0d5e0; border-radius:8px;
+  padding:11px 14px; font-size:.9rem; outline:none; transition:border .2s; }
+.cfg-box input:focus { border-color:#3949ab; }
+.cfg-box .btn-row { display:flex; gap:10px; margin-top:18px; }
+.btn-primary { background:#1a237e; color:#fff; border:none; border-radius:8px;
+  padding:11px 28px; font-size:.9rem; font-weight:600; transition:background .2s; }
+.btn-primary:hover { background:#283593; }
+.btn-ghost { background:transparent; color:#666; border:1.5px solid #d0d5e0;
+  border-radius:8px; padding:11px 22px; font-size:.9rem; }
+
+/* ── Header ───────────────────────────────────────────────────── */
+header { background:linear-gradient(135deg,#1a237e 0%,#283593 60%,#3949ab 100%);
+  color:#fff; padding:0 32px; display:flex; align-items:center;
+  justify-content:space-between; height:64px; box-shadow:0 3px 12px rgba(0,0,0,.2); }
+.logo { display:flex; align-items:center; gap:12px; }
+.logo-icon { width:38px; height:38px; background:rgba(255,255,255,.15);
+  border-radius:10px; display:flex; align-items:center; justify-content:center;
+  font-size:1.3rem; }
+.logo h1 { font-size:1.25rem; font-weight:700; letter-spacing:-.3px; }
+.logo span { font-size:.75rem; opacity:.7; display:block; margin-top:-2px; }
+.hdr-right { display:flex; align-items:center; gap:14px; }
+.last-updated { font-size:.78rem; opacity:.75; }
+.btn-config { background:rgba(255,255,255,.15); border:1px solid rgba(255,255,255,.25);
+  color:#fff; border-radius:8px; padding:7px 16px; font-size:.82rem; }
+.btn-config:hover { background:rgba(255,255,255,.25); }
+.status-dot { width:8px; height:8px; border-radius:50%; background:#4caf50;
+  display:inline-block; margin-right:5px; }
+.status-dot.err { background:#ef5350; }
+.status-dot.loading { background:#ffa726; animation:pulse 1s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+/* ── Date Filter Bar ──────────────────────────────────────────── */
+.date-bar { background:#fff; border-bottom:1px solid #e0e4ee;
+  padding:14px 32px; display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.date-btns { display:flex; gap:6px; }
+.date-btn { background:transparent; border:1.5px solid #d0d5e0; border-radius:7px;
+  padding:7px 18px; font-size:.84rem; color:#555; transition:all .18s; }
+.date-btn:hover  { border-color:#3949ab; color:#3949ab; }
+.date-btn.active { background:#1a237e; border-color:#1a237e; color:#fff; font-weight:600; }
+.date-sep { color:#ccc; margin:0 4px; }
+.custom-range { display:flex; align-items:center; gap:8px; }
+.custom-range input[type=date] { border:1.5px solid #d0d5e0; border-radius:7px;
+  padding:7px 12px; font-size:.84rem; color:#333; outline:none; }
+.custom-range input:focus { border-color:#3949ab; }
+.btn-apply { background:#3949ab; color:#fff; border:none; border-radius:7px;
+  padding:7px 20px; font-size:.84rem; font-weight:600; }
+.btn-apply:hover { background:#1a237e; }
+
+/* ── Summary Cards ────────────────────────────────────────────── */
+.cards-row { display:flex; gap:16px; padding:24px 32px 8px; flex-wrap:wrap; }
+.card { background:#fff; border-radius:12px; padding:20px 24px; flex:1; min-width:140px;
+  box-shadow:0 1px 6px rgba(0,0,0,.07); border-top:4px solid transparent;
+  transition:box-shadow .2s; }
+.card:hover { box-shadow:0 4px 18px rgba(0,0,0,.12); }
+.card.total   { border-color:#1a237e; }
+.card.website { border-color:#0288d1; }
+.card.bot     { border-color:#7b1fa2; }
+.card.meta    { border-color:#1877F2; }
+.card.paid    { border-color:#f57c00; }
+.card.organic { border-color:#2e7d32; }
+.card-label { font-size:.75rem; font-weight:600; text-transform:uppercase;
+  letter-spacing:.7px; color:#888; margin-bottom:6px; }
+.card-value { font-size:2rem; font-weight:700; color:#1a1a2e; line-height:1; }
+.card-sub   { font-size:.75rem; color:#aaa; margin-top:4px; }
+
+/* ── Main Tabs ────────────────────────────────────────────────── */
+.main-content { padding:20px 32px 40px; }
+.tab-nav { display:flex; gap:0; border-bottom:2px solid #e0e4ee; margin-bottom:20px; }
+.tab-btn { background:none; border:none; padding:12px 28px; font-size:.9rem;
+  font-weight:600; color:#888; border-bottom:3px solid transparent;
+  margin-bottom:-2px; transition:all .18s; }
+.tab-btn:hover { color:#1a237e; }
+.tab-btn.active { color:#1a237e; border-bottom-color:#1a237e; }
+.tab-panel { display:none; }
+.tab-panel.active { display:block; }
+
+/* ── Section Header ───────────────────────────────────────────── */
+.sec-head { display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:14px; flex-wrap:wrap; gap:10px; }
+.sec-title { font-size:1rem; font-weight:700; color:#1a1a2e; }
+.sec-right { display:flex; align-items:center; gap:10px; }
+.search-box { border:1.5px solid #d0d5e0; border-radius:8px; padding:7px 14px;
+  font-size:.84rem; outline:none; width:220px; }
+.search-box:focus { border-color:#3949ab; }
+.btn-export { background:#fff; border:1.5px solid #d0d5e0; border-radius:8px;
+  padding:7px 18px; font-size:.82rem; color:#555; display:flex; align-items:center; gap:6px; }
+.btn-export:hover { border-color:#1a237e; color:#1a237e; }
+
+/* ── Sub-tabs (Platform) ──────────────────────────────────────── */
+.sub-tab-nav { display:flex; gap:6px; margin-bottom:16px; flex-wrap:wrap; }
+.sub-tab-btn { border:1.5px solid #d0d5e0; border-radius:8px; padding:7px 18px;
+  font-size:.83rem; font-weight:600; color:#666; background:#fff; transition:all .18s; }
+.sub-tab-btn:hover  { border-color:#3949ab; color:#3949ab; }
+.sub-tab-btn.active { background:#1a237e; border-color:#1a237e; color:#fff; }
+.sub-tab-panel { display:none; }
+.sub-tab-panel.active { display:block; }
+
+/* ── Tables ───────────────────────────────────────────────────── */
+.tbl-wrap { background:#fff; border-radius:12px; overflow:hidden;
+  box-shadow:0 1px 6px rgba(0,0,0,.07); }
+.tbl-wrap table { width:100%; border-collapse:collapse; font-size:.84rem; }
+.tbl-wrap table th { background:#f7f8fc; color:#555; font-weight:700; font-size:.77rem;
+  text-transform:uppercase; letter-spacing:.5px; padding:11px 16px;
+  text-align:left; border-bottom:1.5px solid #e0e4ee; white-space:nowrap; cursor:pointer; }
+.tbl-wrap table th:hover { background:#eef0f9; }
+.tbl-wrap table th .sort-icon { margin-left:4px; opacity:.5; font-size:.7rem; }
+.tbl-wrap table td { padding:10px 16px; border-bottom:1px solid #f0f2f7;
+  vertical-align:middle; }
+.tbl-wrap table tr:last-child td { border-bottom:none; }
+.tbl-wrap table tr:hover td { background:#fafbff; }
+.tbl-wrap table td.num { font-weight:700; color:#1a237e; text-align:center; }
+.tbl-wrap table td.zero { color:#ccc; text-align:center; }
+.tbl-wrap table thead tr:nth-child(2) th {
+  background:#eef0f9; font-size:.72rem; padding:8px 16px; }
+
+/* ── Badges ───────────────────────────────────────────────────── */
+.badge { display:inline-block; border-radius:5px; padding:2px 9px;
+  font-size:.73rem; font-weight:700; }
+.badge-website { background:#e3f2fd; color:#0277bd; }
+.badge-bot     { background:#f3e5f5; color:#7b1fa2; }
+.badge-meta    { background:#e8f0fe; color:#1565c0; }
+.badge-paid    { background:#fff3e0; color:#e65100; }
+.badge-organic { background:#e8f5e9; color:#2e7d32; }
+.badge-new     { background:#e8f5e9; color:#2e7d32; }
+.badge-dup     { background:#ffebee; color:#c62828; }
+.badge-google  { background:#fce4ec; color:#880e4f; }
+
+/* ── Empty / Loading ──────────────────────────────────────────── */
+.empty-state { text-align:center; padding:60px 20px; color:#aaa; }
+.empty-state .icon { font-size:2.5rem; margin-bottom:12px; }
+.empty-state p { font-size:.9rem; }
+.spinner { width:36px; height:36px; border:3px solid #e0e4ee;
+  border-top-color:#1a237e; border-radius:50%; animation:spin .7s linear infinite;
+  margin:60px auto; }
+@keyframes spin { to { transform:rotate(360deg); } }
+.err-banner { background:#ffebee; border:1px solid #ffcdd2; border-radius:10px;
+  padding:16px 20px; color:#c62828; font-size:.88rem; margin-bottom:18px; display:none; }
+
+/* ── Tooltip for long text ────────────────────────────────────── */
+.truncate { max-width:200px; overflow:hidden; text-overflow:ellipsis;
+  white-space:nowrap; display:block; }
+
+/* ── Client row clickable ─────────────────────────────────────── */
+.client-row { cursor:pointer; }
+.client-row td:first-child { font-weight:600; }
+.client-row.selected td { background:#eef0f9 !important; }
+
+/* ── Responsive ───────────────────────────────────────────────── */
+@media(max-width:768px) {
+  header { padding:0 16px; }
+  .date-bar, .main-content, .cards-row { padding-left:16px; padding-right:16px; }
+  .cards-row { gap:10px; }
+  .card { min-width:calc(50% - 5px); }
+  .tbl-wrap { overflow-x:auto; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── Config Overlay ────────────────────────────────────────── -->
+<div id="cfg-overlay">
+  <div class="cfg-box">
+    <h2>⚡ Connect LeadPulse</h2>
+    <p>Paste your Google Apps Script Web App URL below.<br>
+       In Apps Script → <strong>Deploy → New deployment → Web app</strong><br>
+       (Execute as: <em>Me</em> · Who has access: <em>Anyone</em>)</p>
+    <input id="cfg-url" type="text" placeholder="https://script.google.com/macros/s/.../exec" />
+    <div class="btn-row">
+      <button class="btn-primary" onclick="saveConfig()">Save & Load Data</button>
+      <button class="btn-ghost" onclick="closeCfgIfSet()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Header ─────────────────────────────────────────────────── -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">📊</div>
+    <div>
+      <h1>LeadPulse</h1>
+      <span>88gravity Agency Dashboard</span>
+    </div>
+  </div>
+  <div class="hdr-right">
+    <span class="last-updated" id="last-updated">
+      <span class="status-dot loading" id="status-dot"></span>
+      Loading…
+    </span>
+    <button class="btn-config" onclick="openConfig()">⚙ Configure</button>
+  </div>
+</header>
+
+<!-- ── Date Filter Bar ────────────────────────────────────────── -->
+<div class="date-bar">
+  <div class="date-btns">
+    <button class="date-btn" data-range="today"   onclick="setRange('today')">Today</button>
+    <button class="date-btn" data-range="week"    onclick="setRange('week')">This Week</button>
+    <button class="date-btn" data-range="month"   onclick="setRange('month')">This Month</button>
+    <button class="date-btn active" data-range="all" onclick="setRange('all')">All Time</button>
+  </div>
+  <span class="date-sep">|</span>
+  <div class="custom-range">
+    <input type="date" id="date-from" title="From">
+    <span style="color:#aaa;font-size:.8rem">to</span>
+    <input type="date" id="date-to" title="To">
+    <button class="btn-apply" onclick="applyCustom()">Apply</button>
+  </div>
+  <span id="range-label" style="font-size:.8rem;color:#888;margin-left:6px;"></span>
+</div>
+
+<!-- ── Summary Cards ──────────────────────────────────────────── -->
+<div class="cards-row">
+  <div class="card total">
+    <div class="card-label">Total Leads</div>
+    <div class="card-value" id="c-total">—</div>
+    <div class="card-sub">Website + BotPenguin + Meta</div>
+  </div>
+  <div class="card website">
+    <div class="card-label">Website Form</div>
+    <div class="card-value" id="c-website">—</div>
+    <div class="card-sub">Contact / inquiry forms</div>
+  </div>
+  <div class="card bot">
+    <div class="card-label">BotPenguin</div>
+    <div class="card-value" id="c-bot">—</div>
+    <div class="card-sub">Chatbot leads</div>
+  </div>
+  <div class="card meta">
+    <div class="card-label">Meta Ads</div>
+    <div class="card-value" id="c-meta">—</div>
+    <div class="card-sub">Facebook / Instagram</div>
+  </div>
+  <div class="card paid">
+    <div class="card-label">Paid</div>
+    <div class="card-value" id="c-paid">—</div>
+    <div class="card-sub">Has UTM params</div>
+  </div>
+  <div class="card organic">
+    <div class="card-label">Organic</div>
+    <div class="card-value" id="c-organic">—</div>
+    <div class="card-sub">No UTM params</div>
+  </div>
+</div>
+
+<!-- ── Main Tabs ──────────────────────────────────────────────── -->
+<div class="main-content">
+  <div class="err-banner" id="err-banner"></div>
+
+  <div class="tab-nav">
+    <button class="tab-btn active" onclick="switchTab('client')">👥 Client View</button>
+    <button class="tab-btn"        onclick="switchTab('platform')">📱 Platform View</button>
+    <button class="tab-btn"        onclick="switchTab('detail')">📋 All Leads</button>
+  </div>
+
+  <!-- ── CLIENT VIEW ─────────────────────────────────────────── -->
+  <div id="tab-client" class="tab-panel active">
+    <div class="sec-head">
+      <span class="sec-title">Client-wise Lead Summary</span>
+      <div class="sec-right">
+        <input class="search-box" id="client-search" placeholder="🔍 Search client…" oninput="renderClientTable()">
+        <button class="btn-export" onclick="exportCSV('client')">⬇ Export CSV</button>
+      </div>
+    </div>
+    <div class="tbl-wrap" id="client-tbl-wrap">
+      <div class="spinner"></div>
+    </div>
+  </div>
+
+  <!-- ── PLATFORM VIEW ───────────────────────────────────────── -->
+  <div id="tab-platform" class="tab-panel">
+    <div class="sub-tab-nav">
+      <button class="sub-tab-btn active" onclick="switchSubTab('website')">🌐 Website Form</button>
+      <button class="sub-tab-btn"        onclick="switchSubTab('bot')">🤖 BotPenguin</button>
+      <button class="sub-tab-btn"        onclick="switchSubTab('metaads')">📘 Meta Ads</button>
+      <button class="sub-tab-btn"        onclick="switchSubTab('paid')">💰 Paid Leads</button>
+      <button class="sub-tab-btn"        onclick="switchSubTab('organic')">🌿 Organic Leads</button>
+    </div>
+
+    <!-- Website Form -->
+    <div id="sub-website" class="sub-tab-panel active">
+      <div class="sec-head">
+        <span class="sec-title">Website Form Leads</span>
+        <div class="sec-right">
+          <input class="search-box" id="ws-search" placeholder="🔍 Search…" oninput="renderRawTable('website','ws-search','ws-tbl')">
+          <button class="btn-export" onclick="exportCSV('website')">⬇ Export</button>
+        </div>
+      </div>
+      <div class="tbl-wrap" id="ws-tbl"><div class="spinner"></div></div>
+    </div>
+
+    <!-- BotPenguin -->
+    <div id="sub-bot" class="sub-tab-panel">
+      <div class="sec-head">
+        <span class="sec-title">BotPenguin Leads</span>
+        <div class="sec-right">
+          <input class="search-box" id="bot-search" placeholder="🔍 Search…" oninput="renderRawTable('bot','bot-search','bot-tbl')">
+          <button class="btn-export" onclick="exportCSV('bot')">⬇ Export</button>
+        </div>
+      </div>
+      <div class="tbl-wrap" id="bot-tbl"><div class="spinner"></div></div>
+    </div>
+
+    <!-- Meta Ads -->
+    <div id="sub-metaads" class="sub-tab-panel">
+      <div class="sec-head">
+        <span class="sec-title">Meta Ads Leads</span>
+        <div class="sec-right">
+          <input class="search-box" id="meta-search" placeholder="🔍 Search…" oninput="renderMetaTable('meta-search','meta-tbl')">
+          <button class="btn-export" onclick="exportCSV('meta')">⬇ Export</button>
+        </div>
+      </div>
+      <div class="tbl-wrap" id="meta-tbl"><div class="spinner"></div></div>
+    </div>
+
+    <!-- Paid Leads -->
+    <div id="sub-paid" class="sub-tab-panel">
+      <div class="sec-head">
+        <span class="sec-title">Paid Leads (Website Form + BotPenguin with UTM)</span>
+        <div class="sec-right">
+          <input class="search-box" id="paid-search" placeholder="🔍 Search…" oninput="renderRawTable('paid','paid-search','paid-tbl')">
+          <button class="btn-export" onclick="exportCSV('paid')">⬇ Export</button>
+        </div>
+      </div>
+      <div class="tbl-wrap" id="paid-tbl"><div class="spinner"></div></div>
+    </div>
+
+    <!-- Organic Leads -->
+    <div id="sub-organic" class="sub-tab-panel">
+      <div class="sec-head">
+        <span class="sec-title">Organic Leads (Website Form + BotPenguin without UTM)</span>
+        <div class="sec-right">
+          <input class="search-box" id="organic-search" placeholder="🔍 Search…" oninput="renderRawTable('organic','organic-search','organic-tbl')">
+          <button class="btn-export" onclick="exportCSV('organic')">⬇ Export</button>
+        </div>
+      </div>
+      <div class="tbl-wrap" id="organic-tbl"><div class="spinner"></div></div>
+    </div>
+  </div>
+
+  <!-- ── ALL LEADS ───────────────────────────────────────────── -->
+  <div id="tab-detail" class="tab-panel">
+    <div class="sec-head">
+      <span class="sec-title">All Leads Combined</span>
+      <div class="sec-right">
+        <input class="search-box" id="all-search" placeholder="🔍 Search all…" oninput="renderAllTable()">
+        <button class="btn-export" onclick="exportCSV('all')">⬇ Export CSV</button>
+      </div>
+    </div>
+    <div class="tbl-wrap" id="all-tbl"><div class="spinner"></div></div>
+  </div>
+
+</div><!-- /main-content -->
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════════════════════════════════
+var GAS_URL = localStorage.getItem("lp_gas_url") || "";
+
+// ═══════════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════════
+var rawLeads  = [];   // from Raw_Leads tab
+var metaLeads = [];   // from Meta_Leads tab
+var currentRange = { start: null, end: null, preset: "all" };
+var sortState = {};   // { tableId: { col, asc } }
+
+// ═══════════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════════
+window.onload = function() {
+  if (!GAS_URL) {
+    showOverlay();
+  } else {
+    loadData();
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════════════════════════════════
+function openConfig() {
+  document.getElementById("cfg-url").value = GAS_URL;
+  showOverlay();
+}
+function showOverlay() {
+  document.getElementById("cfg-overlay").classList.remove("hidden");
+  document.getElementById("cfg-url").value = GAS_URL;
+}
+function closeCfgIfSet() {
+  if (GAS_URL) document.getElementById("cfg-overlay").classList.add("hidden");
+}
+function saveConfig() {
+  var url = document.getElementById("cfg-url").value.trim();
+  if (!url || !url.includes("script.google.com")) {
+    alert("Please enter a valid Google Apps Script /exec URL.");
+    return;
+  }
+  GAS_URL = url;
+  localStorage.setItem("lp_gas_url", url);
+  document.getElementById("cfg-overlay").classList.add("hidden");
+  loadData();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// DATE RANGE
+// ═══════════════════════════════════════════════════════════════════
+function setRange(preset) {
+  document.querySelectorAll(".date-btn").forEach(function(b) { b.classList.remove("active"); });
+  document.querySelector('[data-range="' + preset + '"]').classList.add("active");
+  currentRange.preset = preset;
+
+  var now   = new Date();
+  var today = fmtDate(now);
+
+  if (preset === "today") {
+    currentRange.start = today;
+    currentRange.end   = today;
+    document.getElementById("range-label").textContent = "Showing: " + today;
+  } else if (preset === "week") {
+    var mon = new Date(now);
+    mon.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+    currentRange.start = fmtDate(mon);
+    currentRange.end   = today;
+    document.getElementById("range-label").textContent = "Showing: " + currentRange.start + " → " + today;
+  } else if (preset === "month") {
+    currentRange.start = now.getFullYear() + "-" + pad(now.getMonth() + 1) + "-01";
+    currentRange.end   = today;
+    document.getElementById("range-label").textContent = "Showing: " + currentRange.start + " → " + today;
+  } else {
+    currentRange.start = null;
+    currentRange.end   = null;
+    document.getElementById("range-label").textContent = "";
+  }
+
+  loadData();
+}
+
+function applyCustom() {
+  var from = document.getElementById("date-from").value;
+  var to   = document.getElementById("date-to").value;
+  if (!from || !to) { alert("Please select both start and end dates."); return; }
+  document.querySelectorAll(".date-btn").forEach(function(b) { b.classList.remove("active"); });
+  currentRange.preset = "custom";
+  currentRange.start  = from;
+  currentRange.end    = to;
+  document.getElementById("range-label").textContent = "Showing: " + from + " → " + to;
+  loadData();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// DATA FETCH
+// ═══════════════════════════════════════════════════════════════════
+function loadData() {
+  setStatus("loading", "Loading…");
+  hideError();
+
+  var url = GAS_URL;
+  if (currentRange.start) url += "?start=" + currentRange.start + "&end=" + (currentRange.end || currentRange.start);
+
+  fetch(url)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (!data.ok) throw new Error("API returned error");
+      rawLeads  = data.rawLeads  || [];
+      metaLeads = data.metaLeads || [];
+      var upd = data.lastUpdated ? new Date(data.lastUpdated).toLocaleString("en-IN") : "—";
+      setStatus("ok", "Updated " + upd);
+      renderAll();
+    })
+    .catch(function(err) {
+      setStatus("err", "Connection error");
+      showError("Could not load data: " + err.message + ". Check your Web App URL in Configure.");
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// RENDER ALL
+// ═══════════════════════════════════════════════════════════════════
+function renderAll() {
+  updateCards();
+  renderClientTable();
+  renderRawTable("website", "ws-search",       "ws-tbl");
+  renderRawTable("bot",     "bot-search",      "bot-tbl");
+  renderMetaTable("meta-search", "meta-tbl");
+  renderRawTable("paid",    "paid-search",     "paid-tbl");
+  renderRawTable("organic", "organic-search",  "organic-tbl");
+  renderAllTable();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// FILTER HELPERS
+// ═══════════════════════════════════════════════════════════════════
+function filterRaw(type) {
+  return rawLeads.filter(function(r) {
+    if (type === "website") return normalize(r["Source"]) === "website form";
+    if (type === "bot")     return normalize(r["Source"]).indexOf("botpenguin") !== -1;
+    if (type === "paid")    return r["Lead Type"] === "Paid";
+    if (type === "organic") return r["Lead Type"] === "Organic";
+    return true; // "all"
+  });
+}
+
+function normalize(s) { return (s || "").toLowerCase().trim(); }
+
+// ═══════════════════════════════════════════════════════════════════
+// SUMMARY CARDS
+// ═══════════════════════════════════════════════════════════════════
+function updateCards() {
+  var website = filterRaw("website").length;
+  var bot     = filterRaw("bot").length;
+  var paid    = filterRaw("paid").length;
+  var organic = filterRaw("organic").length;
+  var meta    = metaLeads.length;
+  var total   = website + bot + meta;
+
+  setText("c-total",   total);
+  setText("c-website", website);
+  setText("c-bot",     bot);
+  setText("c-meta",    meta);
+  setText("c-paid",    paid);
+  setText("c-organic", organic);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CLIENT TABLE
+// ═══════════════════════════════════════════════════════════════════
+function renderClientTable() {
+  var q = (document.getElementById("client-search").value || "").toLowerCase();
+
+  // Build per-client stats
+  var clients = {};
+  rawLeads.forEach(function(r) {
+    var c = r["Client"] || "Unknown";
+    if (!clients[c]) clients[c] = { name:c, website:0, bot:0, paid:0, organic:0 };
+    var src = normalize(r["Source"]);
+    if (src === "website form")                         clients[c].website++;
+    if (src.indexOf("botpenguin") !== -1)               clients[c].bot++;
+    if (r["Lead Type"] === "Paid")                      clients[c].paid++;
+    if (r["Lead Type"] === "Organic")                   clients[c].organic++;
+  });
+  metaLeads.forEach(function(r) {
+    var c = r["Client"] || "Unknown";
+    if (!clients[c]) clients[c] = { name:c, website:0, bot:0, paid:0, organic:0 };
+    if (!clients[c].meta) clients[c].meta = 0;
+    clients[c].meta++;
+  });
+
+  var rows = Object.values(clients).map(function(c) {
+    c.meta  = c.meta  || 0;
+    c.total = c.website + c.bot + c.meta;
+    return c;
+  });
+
+  // Filter
+  if (q) rows = rows.filter(function(r) { return r.name.toLowerCase().indexOf(q) !== -1; });
+
+  // Sort
+  rows.sort(function(a, b) { return b.total - a.total; });
+
+  if (!rows.length) {
+    setHtml("client-tbl-wrap", emptyState("No clients found"));
+    return;
+  }
+
+  var html = '<table id="client-table">'
+    + '<thead><tr>'
+    + '<th onclick="sortTable(\'client-table\',0)">Client <span class="sort-icon">⇅</span></th>'
+    + '<th onclick="sortTable(\'client-table\',1)" style="text-align:center">🌐 Website</th>'
+    + '<th onclick="sortTable(\'client-table\',2)" style="text-align:center">🤖 BotPenguin</th>'
+    + '<th onclick="sortTable(\'client-table\',3)" style="text-align:center">📘 Meta Ads</th>'
+    + '<th onclick="sortTable(\'client-table\',4)" style="text-align:center">📊 TOTAL</th>'
+    + '<th onclick="sortTable(\'client-table\',5)" style="text-align:center">💰 Paid</th>'
+    + '<th onclick="sortTable(\'client-table\',6)" style="text-align:center">🌿 Organic</th>'
+    + '</tr></thead><tbody>';
+
+  rows.forEach(function(r) {
+    html += '<tr class="client-row">'
+      + '<td><strong>' + esc(r.name) + '</strong></td>'
+      + numCell(r.website, "website")
+      + numCell(r.bot,     "bot")
+      + numCell(r.meta,    "meta")
+      + numCell(r.total,   "total")
+      + numCell(r.paid,    "paid")
+      + numCell(r.organic, "organic")
+      + '</tr>';
+  });
+
+  html += '</tbody></table>';
+  setHtml("client-tbl-wrap", html);
+}
+
+function numCell(v, type) {
+  if (!v) return '<td class="zero">—</td>';
+  var color = { website:"#0288d1",bot:"#7b1fa2",meta:"#1877F2",total:"#1a237e",paid:"#f57c00",organic:"#2e7d32" };
+  return '<td style="text-align:center;font-weight:700;color:' + (color[type]||"#333") + '">' + v + '</td>';
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// RAW LEADS TABLE (Website / BotPenguin / Paid / Organic)
+// ═══════════════════════════════════════════════════════════════════
+function renderRawTable(type, searchId, wrapId) {
+  var q    = (document.getElementById(searchId).value || "").toLowerCase();
+  var rows = filterRaw(type);
+
+  if (q) rows = rows.filter(function(r) {
+    return JSON.stringify(r).toLowerCase().indexOf(q) !== -1;
+  });
+
+  if (!rows.length) { setHtml(wrapId, emptyState("No leads found")); return; }
+
+  var html = '<table>'
+    + '<thead><tr>'
+    + '<th>Date</th><th>Client</th><th>Source</th><th>Lead Type</th>'
+    + '<th>Lead Name</th><th>Phone</th><th>Email</th>'
+    + '<th>UTM Source</th><th>UTM Medium</th><th>Campaign</th>'
+    + '<th>Lead Status</th><th>Duplicate</th>'
+    + '</tr></thead><tbody>';
+
+  rows.forEach(function(r) {
+    var src  = normalize(r["Source"]);
+    var srcBadge = src.indexOf("botpenguin") !== -1
+      ? '<span class="badge badge-bot">BotPenguin</span>'
+      : '<span class="badge badge-website">Website Form</span>';
+    var typeBadge = r["Lead Type"] === "Paid"
+      ? '<span class="badge badge-paid">Paid</span>'
+      : '<span class="badge badge-organic">Organic</span>';
+    var dupBadge = r["Duplicate Status"] === "Duplicate"
+      ? '<span class="badge badge-dup">Duplicate</span>'
+      : '<span class="badge badge-new">New</span>';
+
+    html += '<tr>'
+      + '<td style="white-space:nowrap;color:#888;font-size:.8rem">' + fmtDisplayDate(r["Date"]) + '</td>'
+      + '<td><strong>' + esc(r["Client"]) + '</strong></td>'
+      + '<td>' + srcBadge + '</td>'
+      + '<td>' + typeBadge + '</td>'
+      + '<td>' + esc(r["Lead Name"]) + '</td>'
+      + '<td style="white-space:nowrap">' + esc(r["Phone"]) + '</td>'
+      + '<td><span class="truncate" title="' + esc(r["Email"]) + '">' + esc(r["Email"]) + '</span></td>'
+      + '<td><span class="truncate">' + esc(r["UTM Source"]) + '</span></td>'
+      + '<td>' + esc(r["UTM Medium"]) + '</td>'
+      + '<td><span class="truncate" title="' + esc(r["UTM Campaign"]) + '">' + esc(r["UTM Campaign"]) + '</span></td>'
+      + '<td>' + esc(r["Lead Status"]) + '</td>'
+      + '<td>' + dupBadge + '</td>'
+      + '</tr>';
+  });
+
+  html += '</tbody></table>';
+  setHtml(wrapId, html);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// META LEADS TABLE
+// ═══════════════════════════════════════════════════════════════════
+function renderMetaTable(searchId, wrapId) {
+  var q    = (document.getElementById(searchId).value || "").toLowerCase();
+  var rows = metaLeads.slice();
+
+  if (q) rows = rows.filter(function(r) {
+    return JSON.stringify(r).toLowerCase().indexOf(q) !== -1;
+  });
+
+  if (!rows.length) { setHtml(wrapId, emptyState("No Meta leads found")); return; }
+
+  var html = '<table>'
+    + '<thead><tr>'
+    + '<th>Date</th><th>Client</th><th>Campaign</th><th>Ad Set</th><th>Ad Name</th>'
+    + '<th>Form Name</th><th>Lead Name</th><th>Phone</th><th>Email</th>'
+    + '<th>Other Info</th><th>Duplicate</th>'
+    + '</tr></thead><tbody>';
+
+  rows.forEach(function(r) {
+    var dupBadge = r["Duplicate Status"] === "Duplicate"
+      ? '<span class="badge badge-dup">Duplicate</span>'
+      : '<span class="badge badge-new">New</span>';
+    html += '<tr>'
+      + '<td style="white-space:nowrap;color:#888;font-size:.8rem">' + fmtDisplayDate(r["Date"]) + '</td>'
+      + '<td><strong>' + esc(r["Client"]) + '</strong></td>'
+      + '<td><span class="truncate" title="' + esc(r["Campaign"]) + '">' + esc(r["Campaign"]) + '</span></td>'
+      + '<td><span class="truncate" title="' + esc(r["Ad Set"]) + '">' + esc(r["Ad Set"]) + '</span></td>'
+      + '<td><span class="truncate" title="' + esc(r["Ad Name"]) + '">' + esc(r["Ad Name"]) + '</span></td>'
+      + '<td>' + esc(r["Form Name"]) + '</td>'
+      + '<td>' + esc(r["Lead Name"]) + '</td>'
+      + '<td style="white-space:nowrap">' + esc(r["Phone"]) + '</td>'
+      + '<td><span class="truncate" title="' + esc(r["Email"]) + '">' + esc(r["Email"]) + '</span></td>'
+      + '<td><span class="truncate" title="' + esc(r["Other Fields"]) + '">' + esc(r["Other Fields"]) + '</span></td>'
+      + '<td>' + dupBadge + '</td>'
+      + '</tr>';
+  });
+
+  html += '</tbody></table>';
+  setHtml(wrapId, html);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ALL LEADS TABLE (combined)
+// ═══════════════════════════════════════════════════════════════════
+function renderAllTable() {
+  var q = (document.getElementById("all-search").value || "").toLowerCase();
+
+  var combined = [];
+
+  rawLeads.forEach(function(r) {
+    combined.push({
+      date:     r["Date"],
+      client:   r["Client"],
+      platform: r["Source"],
+      type:     r["Lead Type"],
+      name:     r["Lead Name"],
+      phone:    r["Phone"],
+      email:    r["Email"],
+      campaign: r["UTM Campaign"] || r["UTM Source"],
+      status:   r["Lead Status"],
+      dup:      r["Duplicate Status"]
+    });
+  });
+
+  metaLeads.forEach(function(r) {
+    combined.push({
+      date:     r["Date"],
+      client:   r["Client"],
+      platform: "Meta Ads",
+      type:     "Paid",
+      name:     r["Lead Name"],
+      phone:    r["Phone"],
+      email:    r["Email"],
+      campaign: r["Campaign"],
+      status:   "—",
+      dup:      r["Duplicate Status"]
+    });
+  });
+
+  // Sort by date descending
+  combined.sort(function(a, b) { return new Date(b.date) - new Date(a.date); });
+
+  if (q) combined = combined.filter(function(r) {
+    return JSON.stringify(r).toLowerCase().indexOf(q) !== -1;
+  });
+
+  if (!combined.length) { setHtml("all-tbl", emptyState("No leads found")); return; }
+
+  var html = '<table>'
+    + '<thead><tr>'
+    + '<th>Date</th><th>Client</th><th>Platform</th><th>Lead Type</th>'
+    + '<th>Lead Name</th><th>Phone</th><th>Email</th><th>Campaign</th>'
+    + '<th>Status</th><th>Duplicate</th>'
+    + '</tr></thead><tbody>';
+
+  combined.forEach(function(r) {
+    var plat = normalize(r.platform || "");
+    var platBadge =
+      plat.indexOf("meta") !== -1      ? '<span class="badge badge-meta">Meta Ads</span>'    :
+      plat.indexOf("botpenguin") !== -1 ? '<span class="badge badge-bot">BotPenguin</span>'   :
+                                          '<span class="badge badge-website">Website Form</span>';
+    var typeBadge = r.type === "Paid"
+      ? '<span class="badge badge-paid">Paid</span>'
+      : '<span class="badge badge-organic">Organic</span>';
+    var dupBadge = (r.dup || "").indexOf("Dup") !== -1
+      ? '<span class="badge badge-dup">Duplicate</span>'
+      : '<span class="badge badge-new">New</span>';
+
+    html += '<tr>'
+      + '<td style="white-space:nowrap;color:#888;font-size:.8rem">' + fmtDisplayDate(r.date) + '</td>'
+      + '<td><strong>' + esc(r.client) + '</strong></td>'
+      + '<td>' + platBadge + '</td>'
+      + '<td>' + typeBadge + '</td>'
+      + '<td>' + esc(r.name) + '</td>'
+      + '<td style="white-space:nowrap">' + esc(r.phone) + '</td>'
+      + '<td><span class="truncate" title="' + esc(r.email) + '">' + esc(r.email) + '</span></td>'
+      + '<td><span class="truncate" title="' + esc(r.campaign) + '">' + esc(r.campaign) + '</span></td>'
+      + '<td>' + esc(r.status) + '</td>'
+      + '<td>' + dupBadge + '</td>'
+      + '</tr>';
+  });
+
+  html += '</tbody></table>';
+  setHtml("all-tbl", html);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// EXPORT CSV
+// ═══════════════════════════════════════════════════════════════════
+function exportCSV(type) {
+  var rows = [], headers = [], csvRows = [];
+
+  if (type === "client") {
+    headers = ["Client","Website Form","BotPenguin","Meta Ads","Total","Paid","Organic"];
+    var clients = {};
+    rawLeads.forEach(function(r) {
+      var c = r["Client"] || "Unknown";
+      if (!clients[c]) clients[c] = {website:0,bot:0,paid:0,organic:0,meta:0};
+      var src = normalize(r["Source"]);
+      if (src === "website form")              clients[c].website++;
+      if (src.indexOf("botpenguin") !== -1)    clients[c].bot++;
+      if (r["Lead Type"] === "Paid")           clients[c].paid++;
+      if (r["Lead Type"] === "Organic")        clients[c].organic++;
+    });
+    metaLeads.forEach(function(r) {
+      var c = r["Client"] || "Unknown";
+      if (!clients[c]) clients[c] = {website:0,bot:0,paid:0,organic:0,meta:0};
+      clients[c].meta++;
+    });
+    rows = Object.entries(clients).map(function(e) {
+      var c = e[1];
+      return [e[0], c.website, c.bot, c.meta, c.website+c.bot+c.meta, c.paid, c.organic];
+    });
+  } else if (type === "meta") {
+    headers = ["Date","Client","Campaign","Ad Set","Ad Name","Form Name","Lead Name","Phone","Email","Other Fields","Duplicate Status"];
+    rows = metaLeads.map(function(r) {
+      return [r["Date"],r["Client"],r["Campaign"],r["Ad Set"],r["Ad Name"],r["Form Name"],
+              r["Lead Name"],r["Phone"],r["Email"],r["Other Fields"],r["Duplicate Status"]];
+    });
+  } else if (type === "all") {
+    headers = ["Date","Client","Platform","Lead Type","Lead Name","Phone","Email","Campaign","Status","Duplicate"];
+    var combined = [];
+    rawLeads.forEach(function(r) {
+      combined.push([r["Date"],r["Client"],r["Source"],r["Lead Type"],r["Lead Name"],
+                     r["Phone"],r["Email"],r["UTM Campaign"],r["Lead Status"],r["Duplicate Status"]]);
+    });
+    metaLeads.forEach(function(r) {
+      combined.push([r["Date"],r["Client"],"Meta Ads","Paid",r["Lead Name"],
+                     r["Phone"],r["Email"],r["Campaign"],"—",r["Duplicate Status"]]);
+    });
+    rows = combined;
+  } else {
+    // website / bot / paid / organic
+    headers = ["Date","Client","Source","Lead Type","Lead Name","Phone","Email",
+               "UTM Source","UTM Medium","Campaign","Lead Status","Duplicate Status"];
+    rows = filterRaw(type).map(function(r) {
+      return [r["Date"],r["Client"],r["Source"],r["Lead Type"],r["Lead Name"],
+              r["Phone"],r["Email"],r["UTM Source"],r["UTM Medium"],r["UTM Campaign"],
+              r["Lead Status"],r["Duplicate Status"]];
+    });
+  }
+
+  csvRows.push(headers.join(","));
+  rows.forEach(function(row) {
+    csvRows.push(row.map(function(v) {
+      return '"' + (v || "").toString().replace(/"/g, '""') + '"';
+    }).join(","));
+  });
+
+  var blob = new Blob([csvRows.join("\n")], { type: "text/csv" });
+  var a    = document.createElement("a");
+  a.href   = URL.createObjectURL(blob);
+  a.download = "leadpulse_" + type + "_" + fmtDate(new Date()) + ".csv";
+  a.click();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// TAB SWITCHING
+// ═══════════════════════════════════════════════════════════════════
+function switchTab(id) {
+  document.querySelectorAll(".tab-btn").forEach(function(b) { b.classList.remove("active"); });
+  document.querySelectorAll(".tab-panel").forEach(function(p) { p.classList.remove("active"); });
+  event.target.classList.add("active");
+  document.getElementById("tab-" + id).classList.add("active");
+}
+
+function switchSubTab(id) {
+  document.querySelectorAll(".sub-tab-btn").forEach(function(b) { b.classList.remove("active"); });
+  document.querySelectorAll(".sub-tab-panel").forEach(function(p) { p.classList.remove("active"); });
+  event.target.classList.add("active");
+  document.getElementById("sub-" + id).classList.add("active");
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// TABLE SORT (client table)
+// ═══════════════════════════════════════════════════════════════════
+function sortTable(tableId, colIndex) {
+  var table = document.getElementById(tableId);
+  if (!table) return;
+  var key = tableId + "_" + colIndex;
+  var asc = sortState[key] !== true;
+  sortState[key] = asc;
+
+  var rows = Array.from(table.querySelectorAll("tbody tr"));
+  rows.sort(function(a, b) {
+    var av = a.cells[colIndex].textContent.trim();
+    var bv = b.cells[colIndex].textContent.trim();
+    var an = parseFloat(av), bn = parseFloat(bv);
+    if (!isNaN(an) && !isNaN(bn)) return asc ? an - bn : bn - an;
+    return asc ? av.localeCompare(bv) : bv.localeCompare(av);
+  });
+  var tbody = table.querySelector("tbody");
+  rows.forEach(function(r) { tbody.appendChild(r); });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// UI HELPERS
+// ═══════════════════════════════════════════════════════════════════
+function setStatus(state, text) {
+  var dot = document.getElementById("status-dot");
+  var el  = document.getElementById("last-updated");
+  dot.className = "status-dot " + (state === "loading" ? "loading" : state === "err" ? "err" : "");
+  el.innerHTML = '<span class="status-dot ' + (state === "loading" ? "loading" : state === "err" ? "err" : "") + '"></span> ' + text;
+}
+
+function showError(msg) {
+  var el = document.getElementById("err-banner");
+  el.textContent = "⚠ " + msg;
+  el.style.display = "block";
+}
+function hideError() {
+  document.getElementById("err-banner").style.display = "none";
+}
+
+function setText(id, val) { document.getElementById(id).textContent = val; }
+function setHtml(id, html) { document.getElementById(id).innerHTML = html; }
+
+function emptyState(msg) {
+  return '<div class="empty-state"><div class="icon">📭</div><p>' + msg + '</p></div>';
+}
+
+function esc(s) {
+  return (s || "").toString()
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+function fmtDate(d) {
+  return d.getFullYear() + "-" + pad(d.getMonth()+1) + "-" + pad(d.getDate());
+}
+
+function fmtDisplayDate(raw) {
+  if (!raw) return "—";
+  var d = new Date(raw);
+  if (isNaN(d)) return raw;
+  return pad(d.getDate()) + "/" + pad(d.getMonth()+1) + "/" + d.getFullYear()
+       + " <span style='color:#bbb'>" + pad(d.getHours()) + ":" + pad(d.getMinutes()) + "</span>";
+}
+
+function pad(n) { return n < 10 ? "0" + n : "" + n; }
+</script>
+</body>
+</html>
