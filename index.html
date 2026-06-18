@@ -477,23 +477,64 @@ function loadData() {
   setStatus("loading", "Loading…");
   hideError();
 
-  var url = GAS_URL;
-  if (currentRange.start) url += "?start=" + currentRange.start + "&end=" + (currentRange.end || currentRange.start);
+  if (!GAS_URL) {
+    setStatus("err", "Not configured");
+    showError("No Web App URL set. Click Configure to add it.");
+    return;
+  }
 
-  fetch(url)
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      if (!data.ok) throw new Error("API returned error");
-      rawLeads  = data.rawLeads  || [];
-      metaLeads = data.metaLeads || [];
-      var upd = data.lastUpdated ? new Date(data.lastUpdated).toLocaleString("en-IN") : "—";
-      setStatus("ok", "Updated " + upd);
-      renderAll();
-    })
-    .catch(function(err) {
-      setStatus("err", "Connection error");
-      showError("Could not load data: " + err.message + ". Check your Web App URL in Configure.");
-    });
+  // ── JSONP — bypasses CORS completely ────────────────────────────
+  var cbName = "lp_cb_" + Date.now();
+  var url    = GAS_URL + (GAS_URL.indexOf("?") === -1 ? "?" : "&") + "callback=" + cbName;
+  if (currentRange.start) url += "&start=" + currentRange.start + "&end=" + (currentRange.end || currentRange.start);
+
+  var timer = setTimeout(function() {
+    cleanup();
+    setStatus("err", "Timeout");
+    showError("Request timed out after 30 s. Make sure the Web App is deployed as 'Anyone' access and doGet() is in a New Version.");
+    showTablesError();
+  }, 30000);
+
+  function cleanup() {
+    clearTimeout(timer);
+    delete window[cbName];
+    var s = document.getElementById("lp-jsonp-script");
+    if (s && s.parentNode) s.parentNode.removeChild(s);
+  }
+
+  window[cbName] = function(data) {
+    cleanup();
+    if (!data || !data.ok) {
+      setStatus("err", "Error");
+      showError("Apps Script returned an error. Check that doGet() is deployed as a New Version.");
+      showTablesError();
+      return;
+    }
+    rawLeads  = data.rawLeads  || [];
+    metaLeads = data.metaLeads || [];
+    var total = rawLeads.length + metaLeads.length;
+    var upd   = data.lastUpdated ? new Date(data.lastUpdated).toLocaleString("en-IN") : "—";
+    setStatus("ok", "Updated " + upd + " · " + total + " leads");
+    renderAll();
+  };
+
+  var script   = document.createElement("script");
+  script.id    = "lp-jsonp-script";
+  script.src   = url;
+  script.onerror = function() {
+    cleanup();
+    setStatus("err", "Load failed");
+    showError("Could not reach the Apps Script URL. Check the URL in Configure and make sure the Web App is deployed as 'Anyone'.");
+    showTablesError();
+  };
+  document.body.appendChild(script);
+}
+
+function showTablesError() {
+  ["client-tbl-wrap","ws-tbl","bot-tbl","meta-tbl","paid-tbl","organic-tbl","all-tbl"].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.innerHTML = '<div class="empty-state"><div class="icon">⚠️</div><p>Could not load data — check configuration</p></div>';
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -912,10 +953,10 @@ function sortTable(tableId, colIndex) {
 // UI HELPERS
 // ═══════════════════════════════════════════════════════════════════
 function setStatus(state, text) {
-  var dot = document.getElementById("status-dot");
-  var el  = document.getElementById("last-updated");
-  dot.className = "status-dot " + (state === "loading" ? "loading" : state === "err" ? "err" : "");
-  el.innerHTML = '<span class="status-dot ' + (state === "loading" ? "loading" : state === "err" ? "err" : "") + '"></span> ' + text;
+  var el = document.getElementById("last-updated");
+  if (!el) return;
+  var cls = state === "loading" ? "loading" : state === "err" ? "err" : "";
+  el.innerHTML = '<span class="status-dot ' + cls + '" id="status-dot"></span> ' + esc(text);
 }
 
 function showError(msg) {
