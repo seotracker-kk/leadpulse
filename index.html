@@ -180,7 +180,7 @@ header { background:linear-gradient(135deg,#1a237e 0%,#283593 60%,#3949ab 100%);
 <body>
 
 <!-- ── Config Overlay ────────────────────────────────────────── -->
-<div id="cfg-overlay">
+<div id="cfg-overlay" class="hidden">
   <div class="cfg-box">
     <h2>⚡ Connect LeadPulse</h2>
     <p>Paste your Google Apps Script Web App URL below.<br>
@@ -394,6 +394,7 @@ window.onload = function() {
   if (!GAS_URL) {
     showOverlay();
   } else {
+    document.getElementById("cfg-overlay").classList.add("hidden");
     loadData();
   }
 };
